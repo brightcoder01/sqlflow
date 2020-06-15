@@ -22,6 +22,7 @@ type Executor interface {
 	ExecuteExplain(*ExplainStmt) error
 	ExecuteEvaluate(*EvaluateStmt) error
 	ExecuteShowTrain(*ShowTrainStmt) error
+	ExecuteRun(*RunStmt) error
 }
 
 // SQLFlowStmt has multiple implementations: TrainStmt, PredictStmt, ExplainStmt and standard SQL.
@@ -245,3 +246,29 @@ type OptimizeStmt struct {
 	// When SQLFLOW_submitter == "pai", tmp tables will be created for solving tasks
 	TmpTrainTable string
 }
+
+// RunStmt is the intermediate representation of `SELECT TO RUN` statement
+type RunStmt struct {
+	// OriginalSQL is the `SELECT TO RUN` statement.
+	OriginalSQL string
+	// Select is the select statement before TO RUN clause.
+	Select string
+	// ImageName is the name of the docker image after TO RUN keyword.
+	ImageName string
+	// Parameters is the command line parameters for the docker image.
+	Parameters []string
+	// OutputTables is the output table names after INTO keyword.
+	OutputTables []string
+}
+
+// SetOriginalSQL sets the original sql string
+func (sql *RunStmt) SetOriginalSQL(s string) { sql.OriginalSQL = s }
+
+// GetOriginalSQL returns the original SQL statement used to get current IR result
+func (sql *RunStmt) GetOriginalSQL() string { return sql.OriginalSQL }
+
+// Execute generates and executes code for TrainStmt
+func (cl *RunStmt) Execute(s Executor) error { return s.ExecuteRun(cl) }
+
+// IsExtended returns whether a SQLFlowStmt is an extended SQL statement
+func (cl *RunStmt) IsExtended() bool { return true }

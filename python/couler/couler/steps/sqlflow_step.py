@@ -33,3 +33,11 @@ def sqlflow(sql,
                          env=env,
                          secret=secret,
                          resources=resources)
+
+
+def sqlflow_run(sql, images, env=None, secret=None, resources=None):
+    couler.run_container(command='''echo "Hello World."''',
+                         image=images,
+                         env=env,
+                         secret=secret,
+                         resources=resources)

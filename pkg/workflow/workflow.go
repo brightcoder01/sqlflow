@@ -75,12 +75,14 @@ func Run(backend string, sqlProgram string, session *pb.Session, logger *log.Log
 	if e != nil {
 		return "", e
 	}
+	fmt.Printf("The generated couler code is:\n%s", py)
 
 	// translate Couler program to workflow YAML
 	yaml, e := cg.GenYAML(py)
 	if e != nil {
 		return "", e
 	}
+	fmt.Printf("The generated yaml content is:\n%s", yaml)
 
 	return wf.Submit(yaml)
 }

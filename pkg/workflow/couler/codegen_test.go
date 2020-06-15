@@ -196,3 +196,7 @@ INTO sqlflow_models.my_xgboost_model;
 				&ir.NumericColumn{&ir.FieldDesc{"petal_width", ir.Float, "", []int{1}, false, nil, 0}}}},
 		Label: &ir.NumericColumn{&ir.FieldDesc{"class", ir.Int, "", []int{1}, false, nil, 0}}}
 }
+
+func MockToRunStmt() []ir.SQLFlowStmt {
+
+}

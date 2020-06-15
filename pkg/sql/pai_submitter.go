@@ -395,6 +395,10 @@ func (s *paiSubmitter) ExecuteEvaluate(cl *ir.EvaluateStmt) error {
 	return e
 }
 
+func (s *paiSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
+	return nil
+}
+
 // getOSSModelBucket construct a bucket object. Argument project is used to get OSS checkpoint dir
 // from environment variable for current MaxCompute project.
 // FIXME(typhoonzero): use the same model bucket name e.g. sqlflow-models

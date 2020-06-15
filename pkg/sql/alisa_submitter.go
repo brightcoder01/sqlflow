@@ -252,6 +252,10 @@ func (s *alisaSubmitter) ExecuteEvaluate(es *ir.EvaluateStmt) error {
 	return s.uploadResourceAndSubmitAlisaTask(code, requirements, paiCmd, estimator)
 }
 
+func (s *alisaSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
+	return nil
+}
+
 func (s *alisaSubmitter) GetTrainStmtFromModel() bool { return false }
 
 func findPyModulePath(pyModuleName string) (string, error) {

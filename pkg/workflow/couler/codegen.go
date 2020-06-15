@@ -156,6 +156,11 @@ func GenFiller(programIR []ir.SQLFlowStmt, session *pb.Session) (*Filler, error)
 					DockerImage: stepImage}
 				r.SQLStatements = append(r.SQLStatements, sqlStmt)
 			}
+		case *ir.RunStmt:
+			sqlStmt := &sqlStatement{
+				IsExtendedSQL: sqlIR.IsExtended(),
+				DockerImage: i.ImageName}
+			r.SQLStatements = append(r.SQLStatements, sqlStmt)
 		default:
 			return nil, fmt.Errorf("unrecognized IR type: %v", i)
 		}

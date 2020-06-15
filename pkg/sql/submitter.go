@@ -330,3 +330,7 @@ func (s *defaultSubmitter) ExecuteShowTrain(showTrain *ir.ShowTrainStmt) error {
 
 	return nil
 }
+
+func (s *defaultSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
+	return nil
+}

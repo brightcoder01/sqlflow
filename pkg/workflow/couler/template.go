@@ -70,7 +70,7 @@ couler.clean_workflow_after_seconds_finished({{.WorkflowTTL}})
 
 steps.sqlflow(sql='''{{ $ss.OriginalSQL }}''', image="{{ $ss.DockerImage }}", env=step_envs, secret=sqlflow_secret, resources=resources)
 	{{else if $$ss.IsRun}}
-
+steps.sqlflow_run(sql='''{{ $ss.OriginalSQL }}''', image="{{ $ss.DockerImage }}", env=step_envs, secret=sqlflow_secret, resources=resources)
 	{{else if $ss.IsKatibTrain}}
 import couler.sqlflow.katib as auto
 

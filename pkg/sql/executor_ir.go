@@ -87,6 +87,8 @@ func ResolveSQLProgram(sqlStmts []*parser.SQLFlowStmt, logger *log.Logger) ([]ir
 			} else if sql.Evaluate {
 				logger.Info("resolveSQL:evaluate")
 				r, err = generateEvaluateStmt(sql.SQLFlowSelectStmt, "", "", "", false)
+			} else if sql.Run {
+				logger.Info("resolveSQL:run")
 			} else {
 				return nil, fmt.Errorf("unkown exteneded SQL statement type")
 			}

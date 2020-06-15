@@ -396,6 +396,17 @@ func generateEvaluateStmt(slct *parser.SQLFlowSelectStmt, connStr string, modelD
 	return evaluateStmt, nil
 }
 
+func generateRunStmt(slct *parser.SQLFlowSelectStmt, connStr string, cwd string) (*ir.RunStmt, error) {
+	runStmt := &ir.RunStmt{
+		Select: slct.StandardSelect.String(),
+		ImageName: slct.ImageName,
+		Parameters: slct.Parameters,
+		OutputTables: slct.OutputTables,
+	}
+
+	return runStmt, nil
+}
+
 func generateAttributeIR(attrs *parser.Attributes) (map[string]interface{}, error) {
 	ret := make(map[string]interface{})
 	for k, v := range *attrs {
