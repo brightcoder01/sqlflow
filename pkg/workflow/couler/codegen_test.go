@@ -14,6 +14,7 @@
 package couler
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -197,6 +198,43 @@ INTO sqlflow_models.my_xgboost_model;
 		Label: &ir.NumericColumn{&ir.FieldDesc{"class", ir.Int, "", []int{1}, false, nil, 0}}}
 }
 
-func MockToRunStmt() []ir.SQLFlowStmt {
+func TestRunCodegen(t *testing.T) {
+	a := assert.New(t)
 
+	programIR := mockToRunProgramIR()
+
+	cg := &Codegen{}
+	py, e := cg.GenCode(programIR, &pb.Session{})
+
+	a.NoError(e)
+	fmt.Println(py)
+
+	yaml, e := cg.GenYAML(py)
+	a.NoError(e)
+	fmt.Println(yaml)
+}
+
+func mockToRunProgramIR() []ir.SQLFlowStmt {
+	// standardSQL := ir.NormalStmt(`SELECT * FROM source_table ORDER BY creation_date`)
+	runStmt := mockRunStmt()
+	return []ir.SQLFlowStmt{runStmt}
+}
+
+func mockRunStmt() *ir.RunStmt {
+	return &ir.RunStmt{
+		OriginalSQL:`
+SELECT * FROM source_table ORDER BY creation_date
+TO RUN a_data_scientist/ts_data_processor:1.0
+CMD
+	"slide_window_to_row",
+	"--time_column=t",
+	"--value_column=v",
+	"--window_width=120"
+INTO output_table_1, output_table_2;
+`,
+		Select:`SELECT * FROM source_table ORDER BY creation_date`,
+		ImageName:`a_data_scientist/ts_data_processor:1.0`,
+		Parameters:[]string{`slide_window_to_row`,`--time_column=t`,`--value_column=v`,`--window_width=120`},
+		OutputTables:[]string{`output_table_1`, `output_table_2`},
+	}
 }

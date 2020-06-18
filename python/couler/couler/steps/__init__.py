@@ -12,6 +12,6 @@
 # limitations under the License.
 '''This Modules contains Couler steps'''
 
-from .sqlflow_step import sqlflow
+from .sqlflow_step import sqlflow, sqlflow_run
 
-__all__ = ['sqlflow']
+__all__ = ['sqlflow', 'sqlflow_run']

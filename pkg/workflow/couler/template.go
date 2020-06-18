@@ -25,6 +25,7 @@ type sqlStatement struct {
 	Model          string
 	Parameters     string
 	IsKatibTrain   bool
+	IsRun          bool
 }
 
 // Filler is used to fill the template
@@ -45,7 +46,7 @@ import couler.argo as couler
 import couler.steps as steps
 import json
 import re
-datasource = "{{ .DataSource }}"
+datasource = "{{.DataSource}}"
 
 step_envs = dict()
 {{range $k, $v := .StepEnvs}}
@@ -65,18 +66,19 @@ if '''{{.Resources}}''' != "":
 
 couler.clean_workflow_after_seconds_finished({{.WorkflowTTL}})
 
-{{ range $ss := .SQLStatements }}
-	{{if $ss.IsExtendedSQL }}
-
-steps.sqlflow(sql='''{{ $ss.OriginalSQL }}''', image="{{ $ss.DockerImage }}", env=step_envs, secret=sqlflow_secret, resources=resources)
-	{{else if $$ss.IsRun}}
+{{range $ss := .SQLStatements}}
+	{{if $ss.IsExtendedSQL}}
+		{{if $ss.IsRun}}
 steps.sqlflow_run(sql='''{{ $ss.OriginalSQL }}''', image="{{ $ss.DockerImage }}", env=step_envs, secret=sqlflow_secret, resources=resources)
+		{{else}}
+steps.sqlflow(sql='''{{ $ss.OriginalSQL }}''', image="{{ $ss.DockerImage }}", env=step_envs, secret=sqlflow_secret, resources=resources)
+		{{end}}
 	{{else if $ss.IsKatibTrain}}
 import couler.sqlflow.katib as auto
 
-model = "{{ $ss.Model }}"
-params = json.loads('''{{ $ss.Parameters }}''')
-train_sql = '''{{ $ss.OriginalSQL }}'''
+model = "{{$ss.Model}}"
+params = json.loads('''{{$ss.Parameters}}''')
+train_sql = '''{{$ss.OriginalSQL}}'''
 auto.train(model=model, params=params, sql=escape_sql(train_sql), datasource=datasource)
 	{{else}}
 # TODO(yancey1989): 

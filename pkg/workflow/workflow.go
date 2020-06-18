@@ -57,7 +57,10 @@ func Run(backend string, sqlProgram string, session *pb.Session, logger *log.Log
 	if e != nil {
 		return "", e
 	}
+	fmt.Printf("The parsed statements are:\n%s", stmts)
+
 	sqls := sql.RewriteStatementsWithHints(stmts, driverName)
+	fmt.Printf("The rewrited statements are:\n%s", sqls)
 
 	spIRs, e := sql.ResolveSQLProgram(sqls, logger)
 	if e != nil {

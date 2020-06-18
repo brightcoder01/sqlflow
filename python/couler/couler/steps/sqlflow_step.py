@@ -35,9 +35,9 @@ def sqlflow(sql,
                          resources=resources)
 
 
-def sqlflow_run(sql, images, env=None, secret=None, resources=None):
+def sqlflow_run(sql, image, env=None, secret=None, resources=None):
     couler.run_container(command='''echo "Hello World."''',
-                         image=images,
+                         image=image,
                          env=env,
                          secret=secret,
                          resources=resources)

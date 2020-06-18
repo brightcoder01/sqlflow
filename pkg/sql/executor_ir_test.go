@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"sqlflow.org/sqlflow/pkg/database"
+	"sqlflow.org/sqlflow/pkg/log"
 	"sqlflow.org/sqlflow/pkg/parser"
 	"sqlflow.org/sqlflow/pkg/pipe"
 )
@@ -283,4 +284,42 @@ func TestRewriteStatementsWithHints4Alisa(t *testing.T) {
 	a.Equal(len(sqls), 2)
 	a.Equal(sqls[0].Original, hint1+hint2+"\n"+standardSQL)
 	a.Equal(sqls[1].Original, extendedSQL)
+}
+
+func TestResolveSQLProgram(t *testing.T) {
+	a := assert.New(t)
+
+	a.Equal(1, 1)
+
+	sqlStmts := []*parser.SQLFlowStmt{
+		{Original: `SELECT * FROM iris.train`,
+		SQLFlowSelectStmt: &parser.SQLFlowSelectStmt{
+			Run:true,
+			RunClause:parser.RunClause{
+				ImageName:   `a_data_scientist/ts_data_processor:1.0`,
+				Parameters:  []string{`--param_a`, `value_a`, `--param_b`, `value_b`},
+				OutputTables:[]string{`output_table_1`, `output_table_2`},
+			},
+		}},
+	}
+
+	spIRs, _ := ResolveSQLProgram(sqlStmts, log.GetDefaultLogger())
+	fmt.Println(len(spIRs))
+	fmt.Println(spIRs[0].IsExtended())
+	fmt.Println(spIRs[0].GetOriginalSQL())
+}
+
+
+func TestBuildSQLFlowStmts(t *testing.T) {
+	sqlStmts := []*parser.SQLFlowStmt{{Original: `SELECT * FROM iris.train`}}
+	sqlStmts_1 := sqlStmts
+	sqlStmts[0].Original = `New Original SQL Statement`
+	fmt.Println(sqlStmts[0].Original)
+	fmt.Println(sqlStmts_1[0].Original)
+
+	sqlObjectStmts := []parser.SQLFlowStmt{{Original: `SELECT * FROM iris.train`}}
+	sqlObjectStmts_1 := sqlObjectStmts
+	sqlObjectStmts[0].Original = `New Original SQL Statement`
+	fmt.Println(sqlObjectStmts[0].Original)
+	fmt.Println(sqlObjectStmts_1[0].Original)
 }

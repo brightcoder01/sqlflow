@@ -132,6 +132,7 @@ func GenFiller(programIR []ir.SQLFlowStmt, session *pb.Session) (*Filler, error)
 	}
 
 	for _, sqlIR := range programIR {
+		// fmt.Printf("The sqlIR is %s\n", sqlIR)
 		switch i := sqlIR.(type) {
 		case *ir.NormalStmt, *ir.PredictStmt, *ir.ExplainStmt:
 			// TODO(typhoonzero): get model image used when training.
@@ -157,9 +158,11 @@ func GenFiller(programIR []ir.SQLFlowStmt, session *pb.Session) (*Filler, error)
 				r.SQLStatements = append(r.SQLStatements, sqlStmt)
 			}
 		case *ir.RunStmt:
+			fmt.Println("This is an RunStmt IR")
 			sqlStmt := &sqlStatement{
 				IsExtendedSQL: sqlIR.IsExtended(),
-				DockerImage: i.ImageName}
+				DockerImage:   i.ImageName,
+				IsRun:         true}
 			r.SQLStatements = append(r.SQLStatements, sqlStmt)
 		default:
 			return nil, fmt.Errorf("unrecognized IR type: %v", i)
@@ -170,10 +173,12 @@ func GenFiller(programIR []ir.SQLFlowStmt, session *pb.Session) (*Filler, error)
 
 // GenCode generates a Couler program
 func (cg *Codegen) GenCode(programIR []ir.SQLFlowStmt, session *pb.Session) (string, error) {
+	fmt.Printf("The length of programIR is %d.\n", len(programIR))
 	r, e := GenFiller(programIR, session)
 	if e != nil {
 		return "", e
 	}
+	fmt.Printf("The filler contains %d Statements", len(r.SQLStatements))
 	var program bytes.Buffer
 	if err := coulerTemplate.Execute(&program, r); err != nil {
 		return "", err
