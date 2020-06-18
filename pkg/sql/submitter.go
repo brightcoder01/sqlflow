@@ -26,14 +26,16 @@ import (
 	"strings"
 	"sync"
 
+	"sqlflow.org/sqlflow/pkg/codegen/optimize"
+
+	"sqlflow.org/sqlflow/pkg/codegen/pai"
+	"sqlflow.org/sqlflow/pkg/codegen/tensorflow"
+	"sqlflow.org/sqlflow/pkg/codegen/xgboost"
 	"sqlflow.org/sqlflow/pkg/database"
 	"sqlflow.org/sqlflow/pkg/ir"
 	"sqlflow.org/sqlflow/pkg/model"
 	"sqlflow.org/sqlflow/pkg/pipe"
 	pb "sqlflow.org/sqlflow/pkg/proto"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/pai"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/tensorflow"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/xgboost"
 )
 
 var rePyDiagnosis = regexp.MustCompile("sqlflow_submitter.tensorflow.diag.SQLFlowDiagnostic: (.*)")
@@ -130,15 +132,21 @@ func (s *defaultSubmitter) SaveModel(cl *ir.TrainStmt) error {
 	return m.Save(modelURI, cl, s.Session)
 }
 
-func (s *defaultSubmitter) runCommand(program string) error {
+func (s *defaultSubmitter) runCommand(program string, logStderr bool) error {
 	cw := &logChanWriter{wr: s.Writer}
-	var stderr bytes.Buffer
-	var stdout bytes.Buffer
-	w := io.MultiWriter(cw, &stdout)
-	wStderr := bufio.NewWriter(&stderr)
 	defer cw.Close()
 	cmd := sqlflowCmd(s.Cwd, s.Db.DriverName)
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = bytes.NewBufferString(program), w, wStderr
+	var stderr bytes.Buffer
+	var stdout bytes.Buffer
+	if logStderr {
+		w := io.MultiWriter(cw, &stderr)
+		wStdout := bufio.NewWriter(&stdout)
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = bytes.NewBufferString(program), wStdout, w
+	} else {
+		w := io.MultiWriter(cw, &stdout)
+		wStderr := bufio.NewWriter(&stderr)
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = bytes.NewBufferString(program), w, wStderr
+	}
 	if e := cmd.Run(); e != nil {
 		// return the diagnostic message
 		sub := rePyDiagnosis.FindStringSubmatch(stderr.String())
@@ -166,7 +174,7 @@ func (s *defaultSubmitter) ExecuteTrain(cl *ir.TrainStmt) (e error) {
 			return e
 		}
 	}
-	if e := s.runCommand(code); e != nil {
+	if e := s.runCommand(code, false); e != nil {
 		return e
 	}
 	return s.SaveModel(cl)
@@ -188,7 +196,7 @@ func (s *defaultSubmitter) ExecutePredict(cl *ir.PredictStmt) (e error) {
 			return e
 		}
 	}
-	return s.runCommand(code)
+	return s.runCommand(code, false)
 }
 
 func (s *defaultSubmitter) ExecuteExplain(cl *ir.ExplainStmt) error {
@@ -216,7 +224,7 @@ func (s *defaultSubmitter) ExecuteExplain(cl *ir.ExplainStmt) error {
 	if err != nil {
 		return err
 	}
-	if err = s.runCommand(code); err != nil {
+	if err = s.runCommand(code, false); err != nil {
 		return err
 	}
 	img, err := readExplainResult(path.Join(s.Cwd, "summary.png"))
@@ -266,10 +274,46 @@ func (s *defaultSubmitter) ExecuteEvaluate(cl *ir.EvaluateStmt) error {
 			return err
 		}
 	}
-	if err = s.runCommand(code); err != nil {
+	if err = s.runCommand(code, false); err != nil {
 		return err
 	}
 	return nil
+}
+
+func generateOptFlowOptimizeCodeAndExecute(cl *ir.OptimizeStmt, submitter *defaultSubmitter, session *pb.Session, cwd string, dbName string, tableName string, isPai bool) error {
+	// Generate optimization code
+	runnerFileName := "custom_optimize_runner"
+	runnerCode, submitCode, err := optimize.GenerateOptFlowOptimizeCode(cl, session, dbName, tableName,
+		runnerFileName)
+
+	if err != nil {
+		return err
+	}
+
+	// Write the runner code to cwd for submission
+	runnerFilePath := fmt.Sprintf("%s/%s.py", cwd, runnerFileName)
+	err = ioutil.WriteFile(runnerFilePath, []byte(runnerCode), 0644)
+	if err != nil {
+		return err
+	}
+
+	if isPai {
+		err = copyPythonPackage("sqlflow_submitter", cwd)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Note: OptFlow submit API logs on stderr but not stdout
+	if err = submitter.runCommand(submitCode, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *defaultSubmitter) ExecuteOptimize(cl *ir.OptimizeStmt) error {
+	// TODO(sneaxiy): to be implemented
+	return fmt.Errorf("ExecuteOptimize is not supported in default submitter")
 }
 
 func createEvaluationResultTable(db *database.DB, tableName string, metricNames []string) error {
@@ -324,7 +368,7 @@ func (s *defaultSubmitter) ExecuteShowTrain(showTrain *ir.ShowTrainStmt) error {
 		return err
 	}
 	header := make(map[string]interface{})
-	header["columnNames"] = []string{"Table", "Train Statement"}
+	header["columnNames"] = []string{"Model", "Train Statement"}
 	s.Writer.Write(header)
 	s.Writer.Write([]interface{}{showTrain.ModelName, strings.TrimSpace(model.TrainSelect)})
 

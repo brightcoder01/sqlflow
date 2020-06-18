@@ -28,9 +28,9 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"sqlflow.org/gomaxcompute"
+	"sqlflow.org/sqlflow/pkg/codegen/pai"
 	"sqlflow.org/sqlflow/pkg/database"
 	"sqlflow.org/sqlflow/pkg/ir"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/pai"
 )
 
 const (
@@ -399,6 +399,41 @@ func (s *paiSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
 	return nil
 }
 
+// TODO(sneaxiy): need to add some tests to this function, but it requires
+// optflow installed in docker image
+func (s *paiSubmitter) ExecuteOptimize(cl *ir.OptimizeStmt) error {
+	dbName, tableName, err := createTmpTableFromSelect(cl.Select, s.Session.DbConnStr)
+	if err != nil {
+		return err
+	}
+	defer dropTmpTables([]string{tableName}, s.Session.DbConnStr)
+
+	db, err := database.OpenAndConnectDB(s.Session.DbConnStr)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	splittedResultTable := strings.SplitN(cl.ResultTable, ".", 2)
+	var resultTable string
+	if len(splittedResultTable) == 2 {
+		if splittedResultTable[0] != dbName {
+			return fmt.Errorf("database name of result table must be the same as source table")
+		}
+		resultTable = cl.ResultTable
+	} else {
+		resultTable = fmt.Sprintf("%s.%s", dbName, cl.ResultTable)
+	}
+
+	_, err = db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", resultTable))
+	if err != nil {
+		return err
+	}
+
+	err = generateOptFlowOptimizeCodeAndExecute(cl, s.defaultSubmitter, s.Session, s.Cwd, dbName, tableName, true)
+	return err
+}
+
 // getOSSModelBucket construct a bucket object. Argument project is used to get OSS checkpoint dir
 // from environment variable for current MaxCompute project.
 // FIXME(typhoonzero): use the same model bucket name e.g. sqlflow-models
@@ -554,7 +589,7 @@ func createExplainResultTable(db *database.DB, ir *ir.ExplainStmt, tableName str
 func copyPythonPackage(packageName, dst string) error {
 	path, e := findPyModulePath(packageName)
 	if e != nil {
-		return fmt.Errorf("Can not find Python pacakge: %s", packageName)
+		return fmt.Errorf("Can not find Python package: %s", packageName)
 	}
 	cmd := exec.Command("cp", "-r", path, ".")
 	cmd.Dir = dst

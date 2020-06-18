@@ -11,16 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import sys
+import warnings
+from os import path
 
+import six
 import tensorflow as tf
 from sqlflow_submitter.pai import model
 from sqlflow_submitter.seeding import get_tf_random_seed
 
+from ..model_metadata import save_model_metadata
 from . import metrics
 from .diag import check_and_load_estimator
 from .get_tf_version import tf_is_version2
 from .input_fn import input_fn
+from .keras_with_feature_column_input import WrappedKerasModel
 from .pai_distributed import (dump_into_tf_config,
                               make_distributed_info_without_evaluator)
 from .train_estimator import estimator_train_compiled
@@ -29,7 +35,7 @@ from .train_estimator import estimator_train_compiled
 def keras_train_and_save(estimator, model_params, save, is_pai, FLAGS,
                          train_dataset_fn, val_dataset_fn, label_meta, epochs,
                          verbose, metric_names, validation_steps,
-                         load_pretrained_model):
+                         load_pretrained_model, model_meta):
     print("Start training using keras model...")
     # remove optimizer param from model_params and use it when call "compile()"
     optimizer = None
@@ -40,6 +46,13 @@ def keras_train_and_save(estimator, model_params, save, is_pai, FLAGS,
     if "loss" in model_params:
         loss = model_params["loss"]
         del model_params["loss"]
+
+    signature = inspect.signature(estimator)
+    has_feature_columns_arg = False
+    for p in signature.parameters:
+        if signature.parameters[p].name == "feature_columns":
+            has_feature_columns_arg = True
+            break
 
     classifier_pkg = sys.modules[estimator.__module__]
     # setting training metrics
@@ -60,11 +73,26 @@ def keras_train_and_save(estimator, model_params, save, is_pai, FLAGS,
             keras_metrics = metrics.get_keras_metrics(["Accuracy"])
 
     # setting optimizer
+    has_none_optimizer = False
     if optimizer is None:
         # use keras model default optimizer if optimizer is not specified in WITH clause.
-        optimizer = classifier_pkg.optimizer()
+        members = inspect.getmembers(classifier_pkg)
+        # default optimizer
+        optimizer = tf.keras.optimizers.Adagrad(lr=0.001)
+        for m, func in members:
+            if m == "optimizer":
+                optimizer = classifier_pkg.optimizer()
+                if optimizer is None:
+                    has_none_optimizer = True
+                    warnings.warn('optimizer() returns None')
+
     if loss is None:
-        loss = classifier_pkg.loss
+        members = inspect.getmembers(classifier_pkg)
+        # FIXME(typhoonzero): default loss may cause error if model's output shape does not fit.
+        loss = "sparse_categorical_crossentropy"
+        for m, func in members:
+            if m == "loss":
+                loss = classifier_pkg.loss
 
     # setting datasets
     train_dataset = train_dataset_fn()
@@ -73,9 +101,25 @@ def keras_train_and_save(estimator, model_params, save, is_pai, FLAGS,
     else:
         validate_dataset = None
 
-    classifier = check_and_load_estimator(estimator, model_params)
+    if not has_feature_columns_arg and not has_none_optimizer:
+        feature_columns = model_params["feature_columns"]
+        del model_params["feature_columns"]
+        classifier = WrappedKerasModel(estimator, model_params,
+                                       feature_columns)
+    else:
+        classifier = check_and_load_estimator(estimator, model_params)
 
-    classifier.compile(optimizer=optimizer, loss=loss, metrics=keras_metrics)
+    # FIXME(sneaxiy): some models defined by other framework (not TensorFlow or XGBoost)
+    # may return None optimizer.
+    # For example: https://github.com/sql-machine-learning/models/blob/ce970d14a524e20de10a645c99b6bf8724be17d9/sqlflow_models/arima_with_stl_decomposition.py#L123
+    if has_none_optimizer:
+        assert hasattr(
+            classifier,
+            "sqlflow_train_loop"), "optimizer() should not return None"
+    else:
+        classifier.compile(optimizer=optimizer,
+                           loss=loss,
+                           metrics=keras_metrics)
 
     if load_pretrained_model:
         # Must run one batch to initialize parameters before load_weights
@@ -129,10 +173,15 @@ def keras_train_and_save(estimator, model_params, save, is_pai, FLAGS,
             tf.feature_column.make_parse_example_spec(all_feature_columns))
         export_path = keras_estimator.export_saved_model(
             save, serving_input_fn)
+
         # write the path under current directory
+        export_path_str = str(export_path.decode("utf-8"))
         with open("exported_path", "w") as fn:
-            fn.write(str(export_path.decode("utf-8")))
-        print("Done training, model exported to: %s" % export_path)
+            fn.write(export_path_str)
+        # write model metadata to model_meta.json
+        save_model_metadata(path.join(export_path_str, "model_meta.json"),
+                            model_meta)
+        print("Done training, model exported to: %s" % export_path_str)
         return
 
     if hasattr(classifier, 'sqlflow_train_loop'):
@@ -158,20 +207,31 @@ def keras_train_and_save(estimator, model_params, save, is_pai, FLAGS,
                                      epochs=epochs if epochs else
                                      classifier.default_training_epochs(),
                                      verbose=verbose)
-        train_keys = []
-        val_keys = []
+        train_metrics = dict()
+        val_metrics = dict()
         for k in history.history.keys():
             if k.startswith("val_"):
-                val_keys.append(k)
+                val_metrics[k] = float(history.history[k][-1])
             else:
-                train_keys.append(k)
+                train_metrics[k] = float(history.history[k][-1])
         print("====== Result for training set: ======")
-        for k in train_keys:
-            print("%s: %s" % (k, history.history[k][-1]))
+        for k, v in train_metrics.items():
+            print("%s: %s" % (k, v))
         print("====== Result for validation set: ======")
-        for k in val_keys:
-            print("%s: %s" % (k, history.history[k][-1]))
-    classifier.save_weights(save, save_format="h5")
-    if is_pai:
-        print("saving keras model to: %s" % FLAGS.sqlflow_oss_modeldir)
-        model.save_file(FLAGS.sqlflow_oss_modeldir, save)
+        for k, v in val_metrics.items():
+            print("%s: %s" % (k, v))
+        model_meta["evaluation"] = val_metrics
+
+    try:
+        classifier.save_weights(save, save_format="h5")
+        # write model metadata to model_meta.json
+        save_model_metadata("model_meta.json", model_meta)
+        if is_pai:
+            print("saving keras model to: %s" % FLAGS.sqlflow_oss_modeldir)
+            model.save_file(FLAGS.sqlflow_oss_modeldir, save)
+            model.save_file(FLAGS.sqlflow_oss_modeldir, "model_meta.json")
+    except:
+        if has_none_optimizer:
+            warnings.warn("Saving model with None optimizer fails")
+        else:
+            six.reraise(*sys.exc_info())

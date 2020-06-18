@@ -139,7 +139,7 @@ SELECT sepal_length as sl, sepal_width as sw, class FROM iris.train
 TO EXPLAIN sqlflow_models.my_xgboost_model_by_program
 USING TreeExplainer;
 `, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -148,17 +148,17 @@ func TestExecuteXGBoostClassifier(t *testing.T) {
 	modelDir := ""
 	a.NotPanics(func() {
 		stream := RunSQLProgram(testTrainSelectWithLimit, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testXGBoostPredictIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 	a.NotPanics(func() {
 		stream := RunSQLProgram(testXGBoostTrainSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testExplainTreeModelSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testXGBoostPredictIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -167,11 +167,11 @@ func TestExecuteXGBoostRegression(t *testing.T) {
 	modelDir := ""
 	a.NotPanics(func() {
 		stream := RunSQLProgram(testXGBoostTrainSelectHousing, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testExplainTreeModelSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testXGBoostPredictHousing, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -180,9 +180,9 @@ func TestExecutorTrainAndPredictDNN(t *testing.T) {
 	modelDir := ""
 	a.NotPanics(func() {
 		stream := RunSQLProgram(testTrainSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testPredictSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -194,9 +194,9 @@ func TestExecutorTrainAndPredictClusteringLocalFS(t *testing.T) {
 	defer os.RemoveAll(modelDir)
 	a.NotPanics(func() {
 		stream := RunSQLProgram(testClusteringTrain, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testClusteringPredict, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -207,9 +207,9 @@ func TestExecutorTrainAndPredictDNNLocalFS(t *testing.T) {
 	defer os.RemoveAll(modelDir)
 	a.NotPanics(func() {
 		stream := RunSQLProgram(testTrainSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 		stream = RunSQLProgram(testPredictSelectIris, modelDir, database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -231,14 +231,14 @@ COLUMN NUMERIC(dense, 4)
 LABEL class
 INTO sqlflow_models.my_dense_dnn_model;`
 		stream := RunSQLProgram(trainSQL, "", database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 
 		predSQL := `SELECT * FROM iris.test_dense
 TO PREDICT iris.predict_dense.class
 USING sqlflow_models.my_dense_dnn_model
 ;`
 		stream = RunSQLProgram(predSQL, "", database.GetSessionFromTestingDB())
-		a.True(goodStream(stream.ReadAll()))
+		a.True(GoodStream(stream.ReadAll()))
 	})
 }
 
@@ -322,4 +322,19 @@ func TestBuildSQLFlowStmts(t *testing.T) {
 	sqlObjectStmts[0].Original = `New Original SQL Statement`
 	fmt.Println(sqlObjectStmts[0].Original)
 	fmt.Println(sqlObjectStmts_1[0].Original)
+}
+
+func TestIsHints(t *testing.T) {
+	a := assert.New(t)
+	a.True(isAlisaHint("set odps=2"))
+	a.True(isAlisaHint(`--comment1
+    --comment2
+	set odps=2`))
+	a.True(isAlisaHint(`--comment1
+	set odps = 3
+    --comment2`))
+	a.True(isAlisaHint("-- comment \n set odps=2"))
+
+	a.False(isAlisaHint("-- set odps=2"))
+	a.False(isAlisaHint("-- comment \n -- set odps=2"))
 }

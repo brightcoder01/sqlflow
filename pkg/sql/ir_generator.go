@@ -18,13 +18,14 @@ import (
 	"strconv"
 	"strings"
 
+	"sqlflow.org/sqlflow/pkg/codegen/optimize"
+	"sqlflow.org/sqlflow/pkg/codegen/pai"
+	"sqlflow.org/sqlflow/pkg/codegen/tensorflow"
+	"sqlflow.org/sqlflow/pkg/codegen/xgboost"
 	"sqlflow.org/sqlflow/pkg/database"
 	"sqlflow.org/sqlflow/pkg/ir"
 	"sqlflow.org/sqlflow/pkg/model"
 	"sqlflow.org/sqlflow/pkg/parser"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/pai"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/tensorflow"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/xgboost"
 	"sqlflow.org/sqlflow/pkg/step/feature"
 	"sqlflow.org/sqlflow/pkg/verifier"
 )
@@ -43,6 +44,8 @@ const (
 	dense         = "DENSE"
 	comma         = "COMMA"
 	negative      = "-"
+	variables     = "variables"
+	variableType  = "var_type"
 )
 
 func generateTrainStmtWithInferredColumns(slct *parser.SQLFlowSelectStmt, connStr string, modelDir string,
@@ -1033,4 +1036,130 @@ func generateShowTrainStmt(showTrain *parser.SQLFlowSelectStmt) (*ir.ShowTrainSt
 	return &ir.ShowTrainStmt{
 		ModelName: showTrain.ShowTrainClause.ModelName,
 	}, nil
+}
+
+func getOptimizeVariablesAndResultValueName(optimizeStmt *parser.SQLFlowSelectStmt) ([]string, string, error) {
+	varsExpr, ok := optimizeStmt.OptimizeAttrs[variables]
+	if !ok {
+		return nil, "", fmt.Errorf("%s must be provided inside WITH statement of optimize clause", variables)
+	}
+
+	parsedVarsExpr, err := parseExpression(varsExpr)
+	if err != nil {
+		return nil, "", err
+	}
+
+	varsStr, ok := parsedVarsExpr.(string)
+	if !ok {
+		return nil, "", fmt.Errorf("variables must be string but got %T", parsedVarsExpr)
+	}
+
+	varsStr = strings.TrimSpace(varsStr)
+	resultName := ""
+	if idx := strings.Index(varsStr, "("); idx >= 0 {
+		if varsStr[len(varsStr)-1] != ')' {
+			return nil, "", fmt.Errorf("invalid format of variables attributes %s", varsStr)
+		}
+
+		resultName = strings.TrimSpace(varsStr[0:idx])
+		varsStr = strings.TrimSpace(varsStr[idx+1 : len(varsStr)-1])
+	} else {
+		varsStr = strings.TrimSpace(varsStr)
+	}
+
+	varList := strings.Split(varsStr, ",")
+	for idx, value := range varList {
+		varList[idx] = strings.TrimSpace(value)
+		if varList[idx] == "" {
+			return nil, "", fmt.Errorf("variable name is empty")
+		}
+	}
+
+	if len(varList) == 1 && resultName == "" {
+		resultName = varList[0]
+	}
+
+	if len(varList) > 1 {
+		if resultName == "" {
+			return nil, "", fmt.Errorf("result name must be provided when there are multiple variables")
+		}
+
+		for _, eachVar := range varList {
+			if eachVar == resultName {
+				return nil, "", fmt.Errorf("result name should not have same name with the selected columns")
+			}
+		}
+	}
+
+	return varList, resultName, nil
+}
+
+func generateOptimizeStmt(optimizeStmt *parser.SQLFlowSelectStmt) (*ir.OptimizeStmt, error) {
+	vars, resultValueName, err := getOptimizeVariablesAndResultValueName(optimizeStmt)
+	if err != nil {
+		return nil, err
+	}
+
+	varTypeExpr, ok := optimizeStmt.OptimizeAttrs[variableType]
+	if !ok {
+		return nil, fmt.Errorf("%s must be provided in optimize clause", variableType)
+	}
+	varType, err := parseExpression(varTypeExpr)
+	if err != nil {
+		return nil, err
+	}
+	varTypeStr, ok := varType.(string)
+	if !ok {
+		return nil, fmt.Errorf("%s must be string, but got %T", variableType, varType)
+	}
+
+	attrs := make(map[string]interface{})
+	for k, attr := range optimizeStmt.OptimizeAttrs {
+		if k == variables || k == variableType {
+			continue
+		}
+
+		parsedAttr, err := parseExpression(attr)
+		if err != nil {
+			return nil, err
+		}
+		attrs[k] = parsedAttr
+	}
+
+	objective := ir.OptimizeExpr{
+		ExpressionTokens: optimizeStmt.Objective.ToTokens(),
+	}
+
+	constraints := make([]*ir.OptimizeExpr, len(optimizeStmt.Constrants))
+	for i, c := range optimizeStmt.Constrants {
+		constraints[i] = &ir.OptimizeExpr{
+			ExpressionTokens: c.Expression().ToTokens(),
+			GroupBy:          c.GroupBy(),
+		}
+	}
+
+	solver := optimizeStmt.Solver
+	if solver == "" {
+		solver = "glpk" // find a better way to set default value
+	}
+
+	stmt := &ir.OptimizeStmt{
+		Select:          optimizeStmt.StandardSelect.String(),
+		Variables:       vars,
+		ResultValueName: resultValueName,
+		VariableType:    varTypeStr,
+		Attributes:      attrs,
+		Objective:       objective,
+		Direction:       strings.ToLower(optimizeStmt.Direction),
+		Constraints:     constraints,
+		Solver:          solver,
+		ResultTable:     optimizeStmt.OptimizeInto,
+	}
+
+	err = optimize.InitializeAttributes(stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt, nil
 }

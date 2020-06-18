@@ -26,10 +26,10 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"sqlflow.org/goalisa"
+	"sqlflow.org/sqlflow/pkg/codegen/pai"
 	"sqlflow.org/sqlflow/pkg/database"
 	"sqlflow.org/sqlflow/pkg/ir"
 	pb "sqlflow.org/sqlflow/pkg/proto"
-	"sqlflow.org/sqlflow/pkg/sql/codegen/pai"
 )
 
 var resourceName = "job.tar.gz"
@@ -254,6 +254,10 @@ func (s *alisaSubmitter) ExecuteEvaluate(es *ir.EvaluateStmt) error {
 
 func (s *alisaSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
 	return nil
+}
+
+func (s *alisaSubmitter) ExecuteOptimize(es *ir.OptimizeStmt) error {
+	return fmt.Errorf("ExecuteOptimize is not implemented in alisa submitter")
 }
 
 func (s *alisaSubmitter) GetTrainStmtFromModel() bool { return false }
