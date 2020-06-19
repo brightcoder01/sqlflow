@@ -162,7 +162,9 @@ func GenFiller(programIR []ir.SQLFlowStmt, session *pb.Session) (*Filler, error)
 			sqlStmt := &sqlStatement{
 				IsExtendedSQL: sqlIR.IsExtended(),
 				DockerImage:   i.ImageName,
-				IsRun:         true}
+				Select:        i.Select,
+				IsRun:         true,
+				Command:       strings.Join(i.Parameters, " ")}
 			r.SQLStatements = append(r.SQLStatements, sqlStmt)
 		default:
 			return nil, fmt.Errorf("unrecognized IR type: %v", i)
@@ -178,7 +180,7 @@ func (cg *Codegen) GenCode(programIR []ir.SQLFlowStmt, session *pb.Session) (str
 	if e != nil {
 		return "", e
 	}
-	fmt.Printf("The filler contains %d Statements", len(r.SQLStatements))
+	fmt.Printf("The filler contains %d Statements.\n", len(r.SQLStatements))
 	var program bytes.Buffer
 	if err := coulerTemplate.Execute(&program, r); err != nil {
 		return "", err
