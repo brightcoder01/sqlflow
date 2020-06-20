@@ -20,10 +20,10 @@ import (
 	"regexp"
 	"time"
 
+	"sqlflow.org/sqlflow/pkg/executor"
 	"sqlflow.org/sqlflow/pkg/proto"
-	"sqlflow.org/sqlflow/pkg/sql"
 	"sqlflow.org/sqlflow/pkg/step"
-	"sqlflow.org/sqlflow/pkg/tablewriter"
+	"sqlflow.org/sqlflow/pkg/step/tablewriter"
 )
 
 type renderContext struct {
@@ -55,7 +55,7 @@ func render(ctx *renderContext, obj interface{}) error {
 	case *proto.Response_Message:
 		re := regexp.MustCompile(`<div.*?>.*</div>`)
 		if re.MatchString(r.Message.Message) {
-			renderObj = sql.Figures{
+			renderObj = executor.Figures{
 				Image: r.Message.Message,
 			}
 		} else {
