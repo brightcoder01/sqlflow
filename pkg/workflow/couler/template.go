@@ -27,6 +27,7 @@ type sqlStatement struct {
 	IsKatibTrain   bool
 	IsRun          bool
 	Command        string
+	Into           string
 }
 
 // Filler is used to fill the template
@@ -70,7 +71,15 @@ couler.clean_workflow_after_seconds_finished({{.WorkflowTTL}})
 {{range $ss := .SQLStatements}}
 	{{if $ss.IsExtendedSQL}}
 		{{if $ss.IsRun}}
-steps.sqlflow_run(sql='''{{$ss.OriginalSQL}}''', command="{{$ss.Command}}", image="{{$ss.DockerImage}}", env=step_envs, secret=sqlflow_secret, resources=resources)
+steps.sqlflow_run(
+	sql='''{{$ss.OriginalSQL}}''',
+	command="{{$ss.Command}}",
+	image="{{$ss.DockerImage}}",
+	select="{{$ss.Select}}",
+	into="{{$ss.Into}}",
+	env=step_envs,
+	secret=sqlflow_secret,
+	resources=resources)
 		{{else}}
 steps.sqlflow(sql='''{{ $ss.OriginalSQL }}''', image="{{ $ss.DockerImage }}", env=step_envs, secret=sqlflow_secret, resources=resources)
 		{{end}}

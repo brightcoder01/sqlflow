@@ -35,7 +35,12 @@ def sqlflow(sql,
                          resources=resources)
 
 
-def sqlflow_run(sql, command, image, env=None, secret=None, resources=None):
+def sqlflow_run(sql, command, image, select, into, env=None, secret=None, resources=None):
+    if env is None:
+        env = {}
+    env["SQLFLOW_TO_RUN_SELECT"] = select
+    env["SQLFLOW_TO_RUN_INTO"] = into
+
     couler.run_container(command=command,
                          image=image,
                          env=env,

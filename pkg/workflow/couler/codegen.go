@@ -163,6 +163,7 @@ func GenFiller(programIR []ir.SQLFlowStmt, session *pb.Session) (*Filler, error)
 				IsExtendedSQL: sqlIR.IsExtended(),
 				DockerImage:   i.ImageName,
 				Select:        i.Select,
+				Into:          strings.Join(i.OutputTables, ","),
 				IsRun:         true,
 				Command:       strings.Join(i.Parameters, " ")}
 			r.SQLStatements = append(r.SQLStatements, sqlStmt)
