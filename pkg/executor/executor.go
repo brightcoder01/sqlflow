@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -305,7 +306,38 @@ func generateOptFlowOptimizeCodeAndExecute(cl *ir.OptimizeStmt, submitter *pytho
 }
 
 func (s *pythonExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
-	return nil
+	if (len(runStmt.Parameters) == 0) {
+		return nil
+	}
+
+	executable := runStmt.Parameters[0]
+	fileExtension := filepath.Ext(executable)
+	// If the first parameter is python Program
+	if fileExtension == ".py" {
+		if _, e := os.Stat(executable); e != nil {
+			return fmt.Errorf("Failed to get the file %s", executable)
+		}
+
+		// Build the arguments
+		args := runStmt.Parameters[1:]
+
+		// Build the environment variable
+		os.Setenv("SQLFLOW_TO_RUN_SELECT", runStmt.Select)
+		if len(runStmt.OutputTables) != 0 {
+			os.Setenv("SQLFLOW_TO_RUN_INTO=%s", strings.Join(runStmt.OutputTables, ","))
+		}
+
+		// Read the content of Python program
+		code, e := ioutil.ReadFile(executable)
+		if e != nil {
+			return e
+		}
+
+		fmt.Printf("Execute the Python program: %s\n", code)
+		fmt.Printf("The arguments is %s\n", strings.Join(args, " "))
+	}
+
+	return fmt.Errorf("The other executable except Python program is not supported yet.")
 }
 
 func (s *pythonExecutor) ExecuteOptimize(cl *ir.OptimizeStmt) error {
