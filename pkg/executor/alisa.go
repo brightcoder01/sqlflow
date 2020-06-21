@@ -60,7 +60,26 @@ func (s *alisaExecutor) submitAlisaTask(submitCode, codeResourceURL, paramsResou
 		return fmt.Errorf("PAI task failed, please go to check details error logs in the LogViewer website: %s", strings.Join(pickPAILogViewerURL(b.String()), "\n"))
 	}
 	return nil
+}
 
+func (s *alisaExecutor) submitPyODPSTask(submitCode, args string) error {
+	_, dsName, err := database.ParseURL(s.Session.DbConnStr)
+	if err != nil {
+		return err
+	}
+	cfg, e := goalisa.ParseDSN(dsName)
+	if e != nil {
+		return e
+	}
+
+	cfg.Verbose = true
+	alisa := goalisa.New(cfg)
+	var b bytes.Buffer
+	w := io.MultiWriter(os.Stdout, &b)
+	if e := alisa.ExecPyODPSWithWriter(submitCode, args, w); e != nil {
+		return fmt.Errorf("PyODPS task failed, please go to check details error logs in the LogViewer website: %s", strings.Join(pickPAILogViewerURL(b.String()), "\n"))
+	}
+	return nil
 }
 
 func (s *alisaExecutor) ExecuteTrain(ts *ir.TrainStmt) (e error) {

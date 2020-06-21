@@ -384,8 +384,8 @@ func GenerateEvaluateStmt(slct *parser.SQLFlowSelectStmt, connStr string, modelD
 	return evaluateStmt, nil
 }
 
-func generateRunStmt(slct *parser.SQLFlowSelectStmt) (*ir.RunStmt, error) {
-	runStmt := &ir.RunStmt{
+func GenerateRunStmt(slct *parser.SQLFlowSelectStmt) (*RunStmt, error) {
+	runStmt := &RunStmt{
 		Select: slct.StandardSelect.String(),
 		ImageName: slct.ImageName,
 		Parameters: slct.Parameters,

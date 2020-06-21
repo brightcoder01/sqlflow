@@ -304,6 +304,10 @@ func generateOptFlowOptimizeCodeAndExecute(cl *ir.OptimizeStmt, submitter *pytho
 	return nil
 }
 
+func (s *pythonExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
+	return nil
+}
+
 func (s *pythonExecutor) ExecuteOptimize(cl *ir.OptimizeStmt) error {
 	// TODO(sneaxiy): to be implemented
 	return fmt.Errorf("ExecuteOptimize is not supported in default submitter")
@@ -365,9 +369,5 @@ func (s *pythonExecutor) ExecuteShowTrain(showTrain *ir.ShowTrainStmt) error {
 	s.Writer.Write(header)
 	s.Writer.Write([]interface{}{showTrain.ModelName, strings.TrimSpace(model.TrainSelect)})
 
-	return nil
-}
-
-func (s *defaultSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
 	return nil
 }

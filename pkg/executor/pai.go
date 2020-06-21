@@ -405,8 +405,8 @@ func (s *paiExecutor) ExecuteEvaluate(cl *ir.EvaluateStmt) error {
 	return e
 }
 
-func (s *paiSubmitter) ExecuteRun(runStmt *ir.RunStmt) error {
-	return nil
+func (s *paiExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
+	return fmt.Errorf("ExecuteRun is not supported in pai submitter")
 }
 
 // TODO(sneaxiy): need to add some tests to this function, but it requires
