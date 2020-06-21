@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -333,8 +334,25 @@ func (s *pythonExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
 			return e
 		}
 
-		fmt.Printf("Execute the Python program: %s\n", code)
-		fmt.Printf("The arguments is %s\n", strings.Join(args, " "))
+		fmt.Printf("Execute the Python program:\n%s\n", code)
+		fmt.Printf("The arguments is: %s\n", strings.Join(args, " "))
+
+		cmd := exec.Command("python", executable, strings.Join(args, " "))
+		cmd.Dir = s.Cwd
+
+		var stderr bytes.Buffer
+		var stdout bytes.Buffer
+		wStdout := bufio.NewWriter(&stdout)
+		wStderr := bufio.NewWriter(&stderr)
+		cmd.Stdout, cmd.Stderr = wStdout, wStderr
+
+		if e := cmd.Run(); e != nil {
+			fmt.Printf("The program error is: %s\n", stderr.String())
+			return e
+		}
+
+		fmt.Printf("The program output is: %s\n", stdout.String())
+		return nil
 	}
 
 	return fmt.Errorf("The other executable except Python program is not supported yet.")
