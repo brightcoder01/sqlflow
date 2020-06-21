@@ -44,7 +44,7 @@ func NewParser(dialect string) (Parser, error) {
 		// exists in classpath
 		return newJavaParser("maxcompute"), nil
 	case "alisa":
-		return newJavaParser("odps"), nil
+		return newJavaParser("maxcompute"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized dialect %s", dialect)
 	}
