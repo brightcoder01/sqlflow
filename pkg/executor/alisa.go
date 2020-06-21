@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,7 +63,7 @@ func (s *alisaExecutor) submitAlisaTask(submitCode, codeResourceURL, paramsResou
 	return nil
 }
 
-func (s *alisaExecutor) submitPyODPSTask(submitCode, args string) error {
+func (s *alisaExecutor) submitAlisaPyODPSTask(submitCode, args string) error {
 	_, dsName, err := database.ParseURL(s.Session.DbConnStr)
 	if err != nil {
 		return err
@@ -271,7 +272,36 @@ func (s *alisaExecutor) ExecuteEvaluate(es *ir.EvaluateStmt) error {
 }
 
 func (s *alisaExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
-	return nil
+	if (len(runStmt.Parameters) == 0) {
+		return nil
+	}
+
+	// If the first parameter is python Program
+	executable := runStmt.Parameters[0]
+	fileExtension := filepath.Ext(executable)
+	if fileExtension == ".py" {
+		if _, e := os.Stat(executable); e != nil {
+			return fmt.Errorf("Failed to get the file %s", executable)
+		}
+
+		// Build the arguments
+		args := runStmt.Parameters[1:]
+		args = append(args, fmt.Sprintf("SQLFLOW_TO_RUN_SELECT=%s", runStmt.Select))
+		if len(runStmt.OutputTables) != 0 {
+			args = append(args, fmt.Sprintf("SQLFLOW_TO_RUN_INTO=%s",strings.Join(runStmt.OutputTables, ",")))
+		}
+
+		// Read the content of Python program
+		code, e := ioutil.ReadFile(executable)
+		if e != nil {
+			return e
+		}
+
+		// Submit a PyODPS task
+		return s.submitAlisaPyODPSTask(string(code), strings.Join(args, " "))
+	}
+
+	return fmt.Errorf("The other executable except Python program is not supported yet.")
 }
 
 func (s *alisaExecutor) ExecuteOptimize(es *ir.OptimizeStmt) error {
