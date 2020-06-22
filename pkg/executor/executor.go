@@ -324,9 +324,7 @@ func (s *pythonExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
 
 		// Build the environment variable
 		os.Setenv("SQLFLOW_TO_RUN_SELECT", runStmt.Select)
-		if len(runStmt.OutputTables) != 0 {
-			os.Setenv("SQLFLOW_TO_RUN_INTO=%s", strings.Join(runStmt.OutputTables, ","))
-		}
+		os.Setenv("SQLFLOW_TO_RUN_INTO", runStmt.Into)
 
 		// Read the content of Python program
 		code, e := ioutil.ReadFile(executable)

@@ -235,6 +235,6 @@ INTO output_table_1, output_table_2;
 		Select:`SELECT * FROM source_table ORDER BY creation_date`,
 		ImageName:`a_data_scientist/ts_data_processor:1.0`,
 		Parameters:[]string{`slide_window_to_row`,`--time_column=t`,`--value_column=v`,`--window_width=120`},
-		OutputTables:[]string{`output_table_1`, `output_table_2`},
+		Into:`output_table_1,output_table_2`,
 	}
 }

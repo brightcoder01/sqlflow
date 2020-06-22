@@ -310,8 +310,8 @@ type RunStmt struct {
 	ImageName string
 	// Parameters is the command line parameters for the docker image.
 	Parameters []string
-	// OutputTables is the output table names after INTO keyword.
-	OutputTables []string
+	// Into is the output table names (0~N, comma separated) after INTO keyword.
+	Into string
 }
 
 // SetOriginalSQL sets the original sql string

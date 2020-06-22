@@ -287,9 +287,7 @@ func (s *alisaExecutor) ExecuteRun(runStmt *ir.RunStmt) error {
 		// Build the arguments
 		args := runStmt.Parameters[1:]
 		args = append(args, fmt.Sprintf("SQLFLOW_TO_RUN_SELECT=%s", runStmt.Select))
-		if len(runStmt.OutputTables) != 0 {
-			args = append(args, fmt.Sprintf("SQLFLOW_TO_RUN_INTO=%s",strings.Join(runStmt.OutputTables, ",")))
-		}
+		args = append(args, fmt.Sprintf("SQLFLOW_TO_RUN_INTO=%s", runStmt.Into))
 
 		// Read the content of Python program
 		code, e := ioutil.ReadFile(executable)

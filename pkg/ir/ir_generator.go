@@ -389,7 +389,7 @@ func GenerateRunStmt(slct *parser.SQLFlowSelectStmt) (*RunStmt, error) {
 		Select: slct.StandardSelect.String(),
 		ImageName: slct.ImageName,
 		Parameters: slct.Parameters,
-		OutputTables: slct.OutputTables,
+		Into: strings.Join(slct.OutputTables, ","),
 	}
 
 	return runStmt, nil
