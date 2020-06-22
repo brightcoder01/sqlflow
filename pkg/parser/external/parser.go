@@ -38,12 +38,10 @@ func NewParser(dialect string) (Parser, error) {
 		return newJavaParser("hive"), nil
 	case "calcite":
 		return newJavaParser("calcite"), nil
-	case "maxcompute":
+	case "maxcompute", "alisa":
 		// maxcompute is PHONY parser, java will
 		// chose odps or calcite according to which
 		// exists in classpath
-		return newJavaParser("maxcompute"), nil
-	case "alisa":
 		return newJavaParser("maxcompute"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized dialect %s", dialect)
