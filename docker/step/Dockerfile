@@ -33,9 +33,11 @@ RUN /bin/bash -c 'source find_fastest_resources.sh \
     seaborn==0.9.0 \
     dill==0.3.0"
 
-
+ENV SQLFLOW_PARSER_SERVER_LOADING_PATH="/usr/local/sqlflow/java/"
 ADD build/step /usr/bin/
 ADD build/*.jar /opt/sqlflow/parser/
+RUN mkdir -p $SQLFLOW_PARSER_SERVER_LOADING_PATH
+ADD build/*.jar ${SQLFLOW_PARSER_SERVER_LOADING_PATH}
 ADD python/sqlflow_submitter /opt/sqlflow/python/sqlflow_submitter/
 ADD build/models/sqlflow_models /opt/sqlflow/python/sqlflow_models/
 
